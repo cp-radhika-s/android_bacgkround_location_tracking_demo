@@ -26,11 +26,11 @@ class TrackingService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        Timber.d("TrackingService onStartCommand")
+        Timber.d("TrackingService onStartCommand action=${intent?.action}")
         startAsForegroundService()
         locationManager.startLocationUpdates()
         eventRepository.addMessage("Service started")
-        return super.onStartCommand(intent, flags, startId)
+        return START_STICKY
     }
 
     override fun onCreate() {

@@ -3,9 +3,14 @@ package com.demo.android_tracking_demo.data.di
 import android.content.Context
 import com.demo.android_tracking_demo.data.EventRepository
 import com.demo.android_tracking_demo.data.location.LocationManager
+import com.demo.android_tracking_demo.data.geofence.GeofenceManager
+import com.demo.android_tracking_demo.data.activity.ActivityRecognitionManager
 import com.demo.android_tracking_demo.data.local.AppDatabase
 import com.demo.android_tracking_demo.data.local.TrackingEventDao
 import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.GeofencingClient
+import com.google.android.gms.location.ActivityRecognition
+import com.google.android.gms.location.ActivityRecognitionClient
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -46,6 +51,32 @@ object AppModule {
         repository: EventRepository,
         fusedClient: com.google.android.gms.location.FusedLocationProviderClient
     ): LocationManager = LocationManager(context, repository, fusedClient)
+
+    @Provides
+    @Singleton
+    fun provideGeofencingClient(@ApplicationContext context: Context): GeofencingClient =
+        LocationServices.getGeofencingClient(context)
+
+    @Provides
+    @Singleton
+    fun provideGeofenceManager(
+        @ApplicationContext context: Context,
+        repository: EventRepository,
+        geofencingClient: GeofencingClient
+    ): GeofenceManager = GeofenceManager(context, repository, geofencingClient)
+
+    @Provides
+    @Singleton
+    fun provideActivityRecognitionClient(@ApplicationContext context: Context): ActivityRecognitionClient =
+        ActivityRecognition.getClient(context)
+
+    @Provides
+    @Singleton
+    fun provideActivityRecognitionManager(
+        @ApplicationContext context: Context,
+        repository: EventRepository,
+        activityRecognitionClient: ActivityRecognitionClient
+    ): ActivityRecognitionManager = ActivityRecognitionManager(context, repository, activityRecognitionClient)
 }
 
 
