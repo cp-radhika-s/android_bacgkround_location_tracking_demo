@@ -1,6 +1,7 @@
 package com.demo.android_tracking_demo.data.geofence
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
@@ -10,6 +11,7 @@ import androidx.annotation.RequiresPermission
 import androidx.core.app.ActivityCompat
 import com.demo.android_tracking_demo.data.EventRepository
 import com.demo.android_tracking_demo.data.geofence.GeofenceBroadcastReceiver
+import com.demo.android_tracking_demo.data.hasFineLocationPermission
 import com.google.android.gms.location.Geofence
 import com.google.android.gms.location.GeofencingClient
 import com.google.android.gms.location.GeofencingRequest
@@ -21,15 +23,20 @@ class GeofenceManager @Inject constructor(
     private val appContext: Context,
     private val eventRepository: EventRepository,
     private val geofencingClient: GeofencingClient
-)
-{
-    @RequiresPermission(Manifest.permission.ACCESS_FINE_LOCATION)
+) {
+    @SuppressLint("MissingPermission")
     fun createGeofenceAt(
         location: Location,
     ) {
+        if (!appContext.hasFineLocationPermission()) return
+
         val geofence = Geofence.Builder()
             .setRequestId(DEFAULT_REQUEST_ID)
-            .setCircularRegion(location.latitude, location.longitude, DEFAULT_GEOFENCE_RADIUS_METERS)
+            .setCircularRegion(
+                location.latitude,
+                location.longitude,
+                DEFAULT_GEOFENCE_RADIUS_METERS
+            )
             .setExpirationDuration(Geofence.NEVER_EXPIRE)
             .setTransitionTypes(DEFAULT_TRANSITIONS)
             .build()

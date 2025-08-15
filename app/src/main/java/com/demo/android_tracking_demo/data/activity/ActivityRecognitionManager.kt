@@ -1,11 +1,13 @@
 package com.demo.android_tracking_demo.data.activity
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import androidx.annotation.RequiresPermission
 import com.demo.android_tracking_demo.data.EventRepository
+import com.demo.android_tracking_demo.data.hasActivityRecognitionPermission
 import com.google.android.gms.location.ActivityRecognition
 import com.google.android.gms.location.ActivityRecognitionClient
 import com.google.android.gms.location.ActivityTransition
@@ -37,9 +39,14 @@ class ActivityRecognitionManager @Inject constructor(
         stationaryListener = listener
     }
 
-    @RequiresPermission(Manifest.permission.ACTIVITY_RECOGNITION)
+    @SuppressLint("MissingPermission")
     fun start() {
-        activityRecognitionClient.requestActivityUpdates(STATIONARY_DELAY_MS, activityUpdatesPendingIntent)
+        if (!appContext.hasActivityRecognitionPermission()) return
+
+        activityRecognitionClient.requestActivityUpdates(
+            STATIONARY_DELAY_MS,
+            activityUpdatesPendingIntent
+        )
 
 
         val transitions = listOf(
@@ -62,8 +69,9 @@ class ActivityRecognitionManager @Inject constructor(
             }
     }
 
-    @RequiresPermission(Manifest.permission.ACTIVITY_RECOGNITION)
+    @SuppressLint("MissingPermission")
     fun stop() {
+        if (!appContext.hasActivityRecognitionPermission()) return
         activityRecognitionClient.removeActivityTransitionUpdates(activityPendingIntent)
             .addOnSuccessListener { eventRepository.addMessage("ActivityRecognition: stopped") }
             .addOnFailureListener { error ->

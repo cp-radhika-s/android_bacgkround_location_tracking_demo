@@ -1,12 +1,15 @@
 package com.demo.android_tracking_demo.data.location
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
 import android.location.Location
 import android.os.Looper
+import androidx.annotation.RequiresPermission
 import androidx.core.app.ActivityCompat
 import com.demo.android_tracking_demo.data.EventRepository
+import com.demo.android_tracking_demo.data.hasFineLocationPermission
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
@@ -61,6 +64,30 @@ class LocationManager @Inject constructor(
 
     fun stopLocationUpdates() {
         fusedLocationClient.removeLocationUpdates(locationCallback)
+    }
+
+    @SuppressLint("MissingPermission")
+    fun getLastKnownLocation(onResult: (Location?) -> Unit) {
+        if (!appContext.hasFineLocationPermission()) {
+            onResult(null)
+            return
+        }
+        fusedLocationClient.lastLocation
+            .addOnSuccessListener { location ->
+                if (location != null) {
+                    eventRepository.addMessage(
+                        "Last known location: ${location.latitude}-${location.longitude}",
+                        location.time
+                    )
+                } else {
+                    eventRepository.addMessage("Last known location: null")
+                }
+                onResult(location)
+            }
+            .addOnFailureListener { error ->
+                eventRepository.addMessage("Failed to get last known location: ${error.message}")
+                onResult(null)
+            }
     }
 
     companion object {
