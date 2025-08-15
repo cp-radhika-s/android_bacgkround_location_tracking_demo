@@ -48,7 +48,6 @@ internal fun MainContent(
                 onClick = onClick,
                 events = events,
                 onDeleteLogs = onDeleteLogs,
-                modifier = Modifier
             )
         }
     }
@@ -60,12 +59,11 @@ private fun ForegroundServiceSampleScreenContent(
     onClick: () -> Unit,
     events: List<TrackingEvent>,
     onDeleteLogs: () -> Unit,
-    modifier: Modifier = Modifier
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Top,
-        modifier = modifier
+        modifier = Modifier
             .fillMaxSize()
             .padding(top = 32.dp)
             .padding(16.dp)

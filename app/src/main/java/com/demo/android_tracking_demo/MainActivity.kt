@@ -24,34 +24,14 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.demo.android_tracking_demo.data.location.LocationManager
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
-    private var exampleService: TrackingService? = null
-
-    private var serviceBoundState by mutableStateOf(false)
-    private var displayableLocation by mutableStateOf<String?>(null)
-
-    private val connection = object : ServiceConnection {
-
-        override fun onServiceConnected(className: ComponentName, service: IBinder) {
-            Timber.d("onServiceConnected")
-
-            val binder = service as TrackingService.LocalBinder
-            exampleService = binder.getService()
-            serviceBoundState = true
-
-            onServiceConnected()
-        }
-
-        override fun onServiceDisconnected(arg0: ComponentName) {
-            // This is called when the connection with the service has been disconnected. Clean up.
-            Timber.d("onServiceDisconnected")
-
-            serviceBoundState = false
-            exampleService = null
-        }
-    }
+    @Inject
+    lateinit var locationManager: LocationManager
+    private var isServiceRunning by mutableStateOf<Boolean>(false)
 
     private val notificationPermissionLauncher =
         registerForActivityResult(
@@ -86,7 +66,7 @@ class MainActivity : ComponentActivity() {
             val eventsState = eventsVm.events.collectAsStateWithLifecycle()
 
             MainContent(
-                serviceBoundState,
+                serviceRunning = isServiceRunning,
                 onClick = ::onStartOrStopForegroundServiceClick,
                 events = eventsState.value,
                 onDeleteLogs = {
@@ -96,28 +76,29 @@ class MainActivity : ComponentActivity() {
         }
 
         checkAndRequestNotificationPermission()
-        tryToBindToServiceIfRunning()
     }
 
-    private fun checkAndRequestNotificationPermission() {
+    private fun checkAndRequestNotificationPermission(): Boolean {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             when (ContextCompat.checkSelfPermission(
                 this,
                 android.Manifest.permission.POST_NOTIFICATIONS
             )) {
                 android.content.pm.PackageManager.PERMISSION_GRANTED -> {
-                    // permission already granted
+                    return true
                 }
 
                 else -> {
                     notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                    return false
                 }
             }
         }
+        return true
     }
 
     private fun onStartOrStopForegroundServiceClick() {
-        if (exampleService == null) {
+        if (!checkAndRequestNotificationPermission()) {
             locationPermissionRequest.launch(
                 arrayOf(
                     android.Manifest.permission.ACCESS_FINE_LOCATION,
@@ -125,7 +106,15 @@ class MainActivity : ComponentActivity() {
                 )
             )
         } else {
-            exampleService?.stopForegroundService()
+            if (isServiceRunning) {
+                stopService(Intent(this, TrackingService::class.java))
+                isServiceRunning = false
+                Timber.d("Service stopped")
+            } else {
+                startForegroundService()
+                isServiceRunning = true
+                Timber.d("Service started")
+            }
         }
     }
 
@@ -133,27 +122,6 @@ class MainActivity : ComponentActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             startForegroundService(Intent(this, TrackingService::class.java))
         }
-
-        //  tryToBindToServiceIfRunning()
     }
-
-    private fun tryToBindToServiceIfRunning() {
-        Intent(this, TrackingService::class.java).also { intent ->
-            bindService(intent, connection, 0)
-        }
-    }
-
-    private fun onServiceConnected() {
-        lifecycleScope.launch {
-            exampleService?.locationFlow?.map {
-                it?.let { location ->
-                    "${location.latitude}, ${location.longitude}"
-                }
-            }?.collectLatest {
-                displayableLocation = it
-            }
-        }
-    }
-
 }
 

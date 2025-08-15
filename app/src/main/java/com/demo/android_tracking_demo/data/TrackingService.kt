@@ -15,21 +15,14 @@ import timber.log.Timber
 
 @AndroidEntryPoint
 class TrackingService : Service() {
-    private val binder = LocalBinder()
+    @Inject
+    lateinit var locationManager: LocationManager
+    @Inject
+    lateinit var eventRepository: EventRepository
 
-    @Inject lateinit var locationManager: LocationManager
-    @Inject lateinit var eventRepository: EventRepository
-
-    val locationFlow: StateFlow<android.location.Location?>
-        get() = locationManager.locationFlow
-
-    inner class LocalBinder : Binder() {
-        fun getService(): TrackingService = this@TrackingService
-    }
-
-    override fun onBind(intent: Intent?): IBinder {
+    override fun onBind(intent: Intent?): IBinder? {
         Timber.d("TrackingService onBind")
-        return binder
+        return null
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
