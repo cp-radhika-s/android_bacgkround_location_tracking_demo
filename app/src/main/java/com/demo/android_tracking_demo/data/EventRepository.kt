@@ -7,6 +7,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
+import timber.log.Timber
 
 class EventRepository(
     private val eventDao: TrackingEventDao
@@ -18,6 +19,7 @@ class EventRepository(
     fun addMessage(message: String, timestampMs: Long = System.currentTimeMillis()) {
         coroutineScope.launch(Dispatchers.IO) {
             kotlin.runCatching {
+                Timber.d(message)
                 eventDao.insert(
                     TrackingEvent(
                         timestampMs = timestampMs,

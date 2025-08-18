@@ -28,7 +28,7 @@ fun Context.hasActivityRecognitionPermission(): Boolean {
             Manifest.permission.ACTIVITY_RECOGNITION
         ) == PackageManager.PERMISSION_GRANTED
     } else {
-        return true
+        true
     }
 }
 

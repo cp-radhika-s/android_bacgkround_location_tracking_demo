@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import androidx.annotation.RequiresPermission
 import com.demo.android_tracking_demo.data.EventRepository
+import com.demo.android_tracking_demo.data.TrackingService
 import com.demo.android_tracking_demo.data.hasActivityRecognitionPermission
 import com.google.android.gms.location.ActivityRecognition
 import com.google.android.gms.location.ActivityRecognitionClient
@@ -23,6 +24,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import timber.log.Timber
 
 @Singleton
 class ActivityRecognitionManager @Inject constructor(
@@ -41,60 +43,25 @@ class ActivityRecognitionManager @Inject constructor(
 
     @SuppressLint("MissingPermission")
     fun start() {
+
         if (!appContext.hasActivityRecognitionPermission()) return
 
         activityRecognitionClient.requestActivityUpdates(
             STATIONARY_DELAY_MS,
             activityUpdatesPendingIntent
-        )
+        ).addOnSuccessListener { Timber.d("Activity updates started") }
+            .addOnFailureListener { e -> Timber.d(e, "Failed to start updates") }
 
-
-        val transitions = listOf(
-            ActivityTransition.Builder()
-                .setActivityType(DetectedActivity.STILL)
-                .setActivityTransition(ActivityTransition.ACTIVITY_TRANSITION_ENTER)
-                .build(),
-            ActivityTransition.Builder()
-                .setActivityType(DetectedActivity.STILL)
-                .setActivityTransition(ActivityTransition.ACTIVITY_TRANSITION_EXIT)
-                .build()
-        )
-        val request = ActivityTransitionRequest(transitions)
-        activityRecognitionClient.requestActivityTransitionUpdates(request, activityPendingIntent)
-            .addOnSuccessListener {
-                eventRepository.addMessage("ActivityRecognition: listening for STILL enter/exit")
-            }
-            .addOnFailureListener { error ->
-                eventRepository.addMessage("ActivityRecognition: failed to start - ${error.message}")
-            }
     }
 
     @SuppressLint("MissingPermission")
     fun stop() {
         if (!appContext.hasActivityRecognitionPermission()) return
-        activityRecognitionClient.removeActivityTransitionUpdates(activityPendingIntent)
-            .addOnSuccessListener { eventRepository.addMessage("ActivityRecognition: stopped") }
-            .addOnFailureListener { error ->
-                eventRepository.addMessage("ActivityRecognition: failed to stop - ${error.message}")
-            }
         activityRecognitionClient.removeActivityUpdates(activityUpdatesPendingIntent)
             .addOnSuccessListener { }
             .addOnFailureListener { }
         cancelStationaryTimer()
         stationaryListener = null
-    }
-
-    fun handleActivityTransition(intent: Intent) {
-        val result = ActivityTransitionResult.extractResult(intent) ?: return
-        for (transitionEvent in result.transitionEvents) {
-            if (transitionEvent.activityType == DetectedActivity.STILL) {
-                if (transitionEvent.transitionType == ActivityTransition.ACTIVITY_TRANSITION_ENTER) {
-                    onStillEnter()
-                } else if (transitionEvent.transitionType == ActivityTransition.ACTIVITY_TRANSITION_EXIT) {
-                    onStillExit()
-                }
-            }
-        }
     }
 
     fun handleActivityUpdate(intent: Intent) {
@@ -122,22 +89,22 @@ class ActivityRecognitionManager @Inject constructor(
 
     private fun onStillExit() {
         eventRepository.addMessage("ActivityRecognition: STILL exit, cancel timer")
+
+        val serviceIntent = Intent(appContext, TrackingService::class.java).apply {
+            action = TrackingService.ACTION_START_ACTIVE_TRACKING
+        }
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            appContext.startForegroundService(serviceIntent)
+        } else {
+            appContext.startService(serviceIntent)
+        }
+
         cancelStationaryTimer()
     }
 
     private fun cancelStationaryTimer() {
         stationaryTimerJob?.cancel()
         stationaryTimerJob = null
-    }
-
-    private val activityPendingIntent: PendingIntent by lazy {
-        val intent = Intent(appContext, ActivityTransitionReceiver::class.java)
-        PendingIntent.getBroadcast(
-            appContext,
-            101,
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
     }
 
     private val activityUpdatesPendingIntent: PendingIntent by lazy {
@@ -151,7 +118,7 @@ class ActivityRecognitionManager @Inject constructor(
     }
 
     companion object {
-        private const val STATIONARY_DELAY_MS = 30_000L
+        private const val STATIONARY_DELAY_MS = 5000L
     }
 }
 

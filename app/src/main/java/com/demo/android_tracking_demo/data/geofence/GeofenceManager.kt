@@ -49,12 +49,10 @@ class GeofenceManager @Inject constructor(
         geofencingClient.addGeofences(request, geofencePendingIntent).addOnSuccessListener {
             eventRepository.addMessage(
                 "Geofence created at ${location.latitude},${location.longitude} radius=${DEFAULT_GEOFENCE_RADIUS_METERS}m",
-                System.currentTimeMillis()
             )
         }.addOnFailureListener { error ->
             eventRepository.addMessage(
                 "Failed to create geofence: ${error.message}",
-                System.currentTimeMillis()
             )
         }
     }
@@ -63,12 +61,10 @@ class GeofenceManager @Inject constructor(
         geofencingClient.removeGeofences(listOf(requestId)).addOnSuccessListener {
             eventRepository.addMessage(
                 "Geofence removed: $requestId",
-                System.currentTimeMillis()
             )
         }.addOnFailureListener { error ->
             eventRepository.addMessage(
                 "Failed to remove geofence: ${error.message}",
-                System.currentTimeMillis()
             )
         }
     }

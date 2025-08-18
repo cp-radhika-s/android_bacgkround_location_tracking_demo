@@ -37,12 +37,20 @@ class TrackingService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Timber.d("TrackingService onStartCommand action=${intent?.action}")
         startAsForegroundService()
-        eventRepository.addMessage("Service started: waiting for activity state")
-        activityRecognitionManager.registerStationaryListener {
-            eventRepository.addMessage("State: IDLE -> STATIONARY; fetching last known location")
-            tryCreateStationaryGeofence()
+        when (intent?.action) {
+            ACTION_START_ACTIVE_TRACKING -> {
+                eventRepository.addMessage("Starting active tracking with fused provider")
+                locationManager.startLocationUpdates()
+            }
+            else -> {
+                eventRepository.addMessage("Service started: waiting for activity state")
+                activityRecognitionManager.registerStationaryListener {
+                    eventRepository.addMessage("State: IDLE -> STATIONARY; fetching last known location")
+                    tryCreateStationaryGeofence()
+                }
+                activityRecognitionManager.start()
+            }
         }
-        activityRecognitionManager.start()
         return START_STICKY
     }
 
@@ -84,6 +92,12 @@ class TrackingService : Service() {
                 return@getLastKnownLocation
             }
             geofenceManager.createGeofenceAt(location)
+            eventRepository.addMessage("Stationary geofence planted; stopping service")
+            stopForegroundService()
         }
+    }
+
+    companion object {
+        const val ACTION_START_ACTIVE_TRACKING = "com.demo.android_tracking_demo.action.START_ACTIVE_TRACKING"
     }
 }
