@@ -54,7 +54,6 @@ class TrackingManager @Inject constructor(
         eventRepository.addMessage("Starting tracking")
         updateState(TrackingState.MOVING)
         activityRecognitionManager.start()
-        plantGeoFence()
         startLocationDistanceLogging()
         startFgTracking()
         prefs.edit { putBoolean(KEY_IS_TRACKING, true) }
@@ -67,7 +66,8 @@ class TrackingManager @Inject constructor(
         locationManager.stopLocationUpdates()
         stopFgTracking()
         updateState(TrackingState.STATIONARY)
-        geofenceManager.removeGeofence()
+        geofenceManager.removeGeofence(GeofenceManager.START_GEOFENCE_ID)
+        geofenceManager.removeGeofence(GeofenceManager.LAST_GEOFENCE_ID)
         prefs.edit { putBoolean(KEY_IS_TRACKING, false) }
     }
 
@@ -80,22 +80,32 @@ class TrackingManager @Inject constructor(
     }
 
     // ------------ GeoFence Handling ------------
-    private fun plantGeoFence() {
+    private fun plantStartGeofence() {
         coroutineScope.launch {
             locationManager.getCurrentLocation().collectLatest { location ->
                 if (location != null) {
-                    geofenceManager.removeGeofence()
-                    geofenceManager.createGeofenceAt(location)
+                    geofenceManager.createStartGeofenceAt(location)
                 }
             }
         }
     }
 
-    fun onGeoFenceExit() {
-        geofenceManager.removeGeofence()
+    private fun plantLastGeofence(location: Location) {
+        geofenceManager.createLastGeofenceAt(location)
+    }
+
+    fun onGeofenceExit(triggeringIds: List<String>) {
+        if (triggeringIds.isNotEmpty()) {
+            triggeringIds.forEach { id -> geofenceManager.removeGeofence(id) }
+        }
+
         updateState(TrackingState.MOVING)
         eventRepository.addMessage("GeoFence exit detected, starting active tracking")
         startFgTracking()
+
+        lastLocation?.let { current ->
+            geofenceManager.createStartGeofenceAt(current)
+        } ?: plantStartGeofence()
     }
 
     // ------------ Activity Recognition Handling ------------
@@ -126,7 +136,6 @@ class TrackingManager @Inject constructor(
         stationaryTimerJob = coroutineScope.launch {
             delay(3.minutes)
             updateState(TrackingState.STATIONARY)
-            plantGeoFence()
             stopFgTracking()
         }
     }
@@ -166,7 +175,7 @@ class TrackingManager @Inject constructor(
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
                 e is ForegroundServiceStartNotAllowedException
             ) {
-                plantGeoFence()
+                plantStartGeofence()
             }
         }
     }
@@ -188,6 +197,9 @@ class TrackingManager @Inject constructor(
                     location.time
                 )
                 lastLocation = location
+                if (_trackingState.value == TrackingState.MOVING) {
+                    plantLastGeofence(location)
+                }
             }
         }
     }

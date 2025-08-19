@@ -32,18 +32,10 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
         }
 
         val transition = event.geofenceTransition
-        val transitionLabel = when (transition) {
-            Geofence.GEOFENCE_TRANSITION_ENTER -> "ENTER"
-            Geofence.GEOFENCE_TRANSITION_EXIT -> "EXIT"
-            Geofence.GEOFENCE_TRANSITION_DWELL -> "DWELL"
-            else -> "UNKNOWN"
-        }
-
-        val ids = event.triggeringGeofences?.joinToString { it.requestId } ?: "none"
-        eventRepository.addMessage("Geofence transition: $transitionLabel ids=$ids")
+        val triggeringIds = event.triggeringGeofences?.map { it.requestId } ?: emptyList()
 
         if (transition == Geofence.GEOFENCE_TRANSITION_EXIT) {
-            trackingManager.onGeoFenceExit()
+            trackingManager.onGeofenceExit(triggeringIds)
         }
     }
 }

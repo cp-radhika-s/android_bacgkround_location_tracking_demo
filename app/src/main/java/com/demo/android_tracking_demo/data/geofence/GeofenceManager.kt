@@ -29,21 +29,41 @@ class GeofenceManager @Inject constructor(
     private val geofencingClient: GeofencingClient
 ) {
     @SuppressLint("MissingPermission")
-    fun createGeofenceAt(
-        location: Location,
-    ) {
+    fun createGeofenceAt(location: Location) {
+        // Backwards-compatible default that uses the legacy request ID
+        upsertGeofenceAt(location, DEFAULT_REQUEST_ID)
+    }
+
+    @SuppressLint("MissingPermission")
+    fun createGeofenceAt(location: Location, requestId: String) {
+        upsertGeofenceAt(location, requestId)
+    }
+
+    @SuppressLint("MissingPermission")
+    fun createStartGeofenceAt(location: Location) {
+        upsertGeofenceAt(location, START_GEOFENCE_ID)
+    }
+
+    @SuppressLint("MissingPermission")
+    fun createLastGeofenceAt(location: Location) {
+        upsertGeofenceAt(location, LAST_GEOFENCE_ID)
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun upsertGeofenceAt(location: Location, requestId: String) {
         if (!appContext.hasFineLocationPermission()) return
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && !appContext.hasBackgroundLocationPermission()) {
             eventRepository.addMessage("Warning: ACCESS_BACKGROUND_LOCATION not granted; geofence events may not fire in background")
         }
 
         val geofence = Geofence.Builder()
-            .setRequestId(DEFAULT_REQUEST_ID)
+            .setRequestId(requestId)
             .setCircularRegion(
                 location.latitude,
                 location.longitude,
                 DEFAULT_GEOFENCE_RADIUS_METERS
-            ).setNotificationResponsiveness(30_000)
+            )
+            .setNotificationResponsiveness(30_000)
             .setExpirationDuration(Geofence.NEVER_EXPIRE)
             .setTransitionTypes(DEFAULT_TRANSITIONS)
             .build()
@@ -53,14 +73,17 @@ class GeofenceManager @Inject constructor(
             .addGeofence(geofence)
             .build()
 
-        geofencingClient.addGeofences(request, geofencePendingIntent).addOnSuccessListener {
-            eventRepository.addMessage(
-                "Geofence created at ${location.latitude},${location.longitude} radius=${DEFAULT_GEOFENCE_RADIUS_METERS}m",
-            )
-        }.addOnFailureListener { error ->
-            eventRepository.addMessage(
-                "Failed to create geofence: ${error.message}",
-            )
+        // Ensure only one geofence exists per requestId by removing then adding
+        geofencingClient.removeGeofences(listOf(requestId)).addOnCompleteListener {
+            geofencingClient.addGeofences(request, geofencePendingIntent).addOnSuccessListener {
+                eventRepository.addMessage(
+                    "Geofence [$requestId] created at ${location.latitude},${location.longitude} radius=${DEFAULT_GEOFENCE_RADIUS_METERS}m",
+                )
+            }.addOnFailureListener { error ->
+                eventRepository.addMessage(
+                    "Failed to create geofence [$requestId]: ${error.message}",
+                )
+            }
         }
     }
 
@@ -91,6 +114,8 @@ class GeofenceManager @Inject constructor(
 
     companion object {
         const val DEFAULT_REQUEST_ID = "stationary_geofence"
+        const val START_GEOFENCE_ID = "start_region"
+        const val LAST_GEOFENCE_ID = "last_region"
         const val DEFAULT_GEOFENCE_RADIUS_METERS = 100f
         const val DEFAULT_TRANSITIONS = Geofence.GEOFENCE_TRANSITION_EXIT
     }
