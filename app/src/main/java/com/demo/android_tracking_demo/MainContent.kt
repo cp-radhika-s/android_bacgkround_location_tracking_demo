@@ -37,6 +37,7 @@ internal fun MainContent(
     onClick: () -> Unit,
     onDeleteLogs: () -> Unit,
     events: List<TrackingEvent> = emptyList(),
+    stateLabel: String,
 ) {
     Android_tracking_demoTheme {
         Surface(
@@ -48,6 +49,7 @@ internal fun MainContent(
                 onClick = onClick,
                 events = events,
                 onDeleteLogs = onDeleteLogs,
+                stateLabel = stateLabel,
             )
         }
     }
@@ -59,6 +61,7 @@ private fun ForegroundServiceSampleScreenContent(
     onClick: () -> Unit,
     events: List<TrackingEvent>,
     onDeleteLogs: () -> Unit,
+    stateLabel: String,
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -75,6 +78,7 @@ private fun ForegroundServiceSampleScreenContent(
                 )
             }
             Spacer(modifier = Modifier.weight(1f))
+            Text(text = "State: $stateLabel", color = Color.Gray)
             IconButton(onClick = onDeleteLogs) {
                 Icon(Icons.Default.Delete, contentDescription = "Delete Logs")
             }

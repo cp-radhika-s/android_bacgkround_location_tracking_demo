@@ -41,10 +41,6 @@ class LocationManager @Inject constructor(
         override fun onLocationResult(locationResult: LocationResult) {
             for (location in locationResult.locations) {
                 _locationFlow.value = location
-                eventRepository.addMessage(
-                    "Location update: ${location.latitude}-${location.longitude}",
-                    location.time
-                )
             }
         }
     }

@@ -65,6 +65,11 @@ class MainActivity : ComponentActivity() {
         setContent {
             val eventsVm: EventsViewModel = hiltViewModel()
             val eventsState = eventsVm.events.collectAsStateWithLifecycle()
+            val trackingState = trackingManager.trackingState.collectAsStateWithLifecycle()
+            val stateLabel = when (trackingState.value) {
+                TrackingManager.TrackingState.MOVING -> "Moving"
+                TrackingManager.TrackingState.STATIONARY -> "Stationary"
+            }
 
             MainContent(
                 serviceRunning = isServiceRunning,
@@ -73,24 +78,30 @@ class MainActivity : ComponentActivity() {
                 onDeleteLogs = {
                     eventsVm.deleteLogs()
                 },
+                stateLabel = stateLabel,
             )
         }
 
         checkAndRequestNotificationPermission()
+        val resumed = trackingManager.resumeIfPreviouslyTracking()
+        if (resumed) {
+            isServiceRunning = true
+            Timber.d("Service resumed on launch")
+        }
     }
 
     private fun checkAndRequestNotificationPermission(): Boolean {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             when (ContextCompat.checkSelfPermission(
                 this,
-                android.Manifest.permission.POST_NOTIFICATIONS
+                Manifest.permission.POST_NOTIFICATIONS
             )) {
-                android.content.pm.PackageManager.PERMISSION_GRANTED -> {
+                PackageManager.PERMISSION_GRANTED -> {
                     return true
                 }
 
                 else -> {
-                    notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                     return false
                 }
             }
