@@ -5,10 +5,13 @@ import android.content.Context
 import android.content.Intent
 import android.location.Location
 import android.os.Build
+import android.os.SystemClock
 import com.demo.android_tracking_demo.data.activity.ActivityRecognitionManager
 import com.demo.android_tracking_demo.data.geofence.GeofenceManager
 import com.demo.android_tracking_demo.data.location.LocationManager
 import com.google.android.gms.location.ActivityRecognitionResult
+import com.google.android.gms.location.ActivityTransitionResult
+import com.google.android.gms.location.ActivityTransition
 import com.google.android.gms.location.DetectedActivity
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
@@ -96,47 +99,32 @@ class TrackingManager @Inject constructor(
     }
 
     // ------------ Activity Recognition Handling ------------
-    fun handleActivityUpdate(intent: Intent) {
-        val result = ActivityRecognitionResult.extractResult(intent) ?: return
-        val mostProbable = result.mostProbableActivity
-        val type = mostProbable.type
-        val confidence = mostProbable.confidence
-        eventRepository.addMessage("Activity update: type=$type confidence=$confidence")
-        if (confidence < 50 || type == DetectedActivity.UNKNOWN) return
+    fun handleActivityTransition(intent: Intent) {
+        val result = ActivityTransitionResult.extractResult(intent) ?: return
+        result.transitionEvents.forEach { event ->
+            val activityType = event.activityType
+            val transitionType = event.transitionType
+            eventRepository.addMessage("Activity transition: type=$activityType transition=$transitionType")
 
-        val timeSinceStart =
-            System.currentTimeMillis() - result.time
-
-        Timber.d("XXX Activity update: timeSinceStart=$timeSinceStart elapsedRealtimeMillis ${result.time}")
-
-        if (type == DetectedActivity.STILL) {
-            onStillEnter(result.time)
-        } else {
-            onStillExit()
+            if (activityType == DetectedActivity.STILL) {
+                if (transitionType == ActivityTransition.ACTIVITY_TRANSITION_ENTER) {
+                    onStillEnter()
+                } else if (transitionType == ActivityTransition.ACTIVITY_TRANSITION_EXIT) {
+                    onStillExit()
+                }
+            }
         }
     }
 
-    private fun onStillEnter(detectedAt: Long) {
+    private fun onStillEnter() {
         if (_trackingState.value == TrackingState.STATIONARY) {
             return
         }
         eventRepository.addMessage("ActivityRecognition: STILL enter, scheduling 3m check")
 
         stationaryTimerJob?.cancel()
-        val timeSinceStart =
-            System.currentTimeMillis() - detectedAt
-
-        if (timeSinceStart >= 180_000) {
-            updateState(TrackingState.STATIONARY)
-            plantGeoFence()
-            stopFgTracking()
-            return
-        }
-
-
         stationaryTimerJob = coroutineScope.launch {
-            val delay = 180_000 - timeSinceStart
-            delay(delay)
+            delay(3.minutes)
             updateState(TrackingState.STATIONARY)
             plantGeoFence()
             stopFgTracking()

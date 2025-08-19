@@ -37,19 +37,30 @@ class ActivityRecognitionManager @Inject constructor(
 
         if (!appContext.hasActivityRecognitionPermission()) return
 
-        Timber.d("Activity updates requested")
-        activityRecognitionClient.requestActivityUpdates(
-            STATIONARY_DELAY_MS,
+        val transitions = listOf(
+            ActivityTransition.Builder()
+                .setActivityType(DetectedActivity.STILL)
+                .setActivityTransition(ActivityTransition.ACTIVITY_TRANSITION_ENTER)
+                .build(),
+            ActivityTransition.Builder()
+                .setActivityType(DetectedActivity.STILL)
+                .setActivityTransition(ActivityTransition.ACTIVITY_TRANSITION_EXIT)
+                .build()
+        )
+
+        Timber.d("Activity transition updates requested")
+        activityRecognitionClient.requestActivityTransitionUpdates(
+            ActivityTransitionRequest(transitions),
             activityUpdatesPendingIntent
-        ).addOnSuccessListener { Timber.d("Activity updates started") }
-            .addOnFailureListener { e -> Timber.d(e, "Failed to start updates") }
+        ).addOnSuccessListener { Timber.d("Activity transition updates started") }
+            .addOnFailureListener { e -> Timber.d(e, "Failed to start transition updates") }
 
     }
 
     @SuppressLint("MissingPermission")
     fun stop() {
         if (!appContext.hasActivityRecognitionPermission()) return
-        activityRecognitionClient.removeActivityUpdates(activityUpdatesPendingIntent)
+        activityRecognitionClient.removeActivityTransitionUpdates(activityUpdatesPendingIntent)
             .addOnSuccessListener { }
             .addOnFailureListener { }
     }
@@ -63,10 +74,6 @@ class ActivityRecognitionManager @Inject constructor(
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
         )
-    }
-
-    companion object {
-        private const val STATIONARY_DELAY_MS = 5000L
     }
 }
 

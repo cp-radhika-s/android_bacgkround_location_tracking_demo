@@ -23,12 +23,13 @@ class ActivityTransitionReceiver : BroadcastReceiver() {
     lateinit var eventRepository: EventRepository
 
     override fun onReceive(context: Context, intent: Intent) {
-        if (ActivityRecognitionResult.hasResult(intent)) {
-            trackingManager.handleActivityUpdate(
-                intent
-            )
-        } else {
-            eventRepository.addMessage("No ActivityRecognitionResult in intent")
+        when {
+            ActivityTransitionResult.hasResult(intent) -> {
+                trackingManager.handleActivityTransition(intent)
+            }
+            else -> {
+                eventRepository.addMessage("No Activity result in intent")
+            }
         }
 
 
