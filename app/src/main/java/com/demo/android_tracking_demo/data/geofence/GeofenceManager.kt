@@ -28,16 +28,6 @@ class GeofenceManager @Inject constructor(
     private val eventRepository: EventRepository,
     private val geofencingClient: GeofencingClient
 ) {
-    @SuppressLint("MissingPermission")
-    fun createGeofenceAt(location: Location) {
-        // Backwards-compatible default that uses the legacy request ID
-        upsertGeofenceAt(location, DEFAULT_REQUEST_ID)
-    }
-
-    @SuppressLint("MissingPermission")
-    fun createGeofenceAt(location: Location, requestId: String) {
-        upsertGeofenceAt(location, requestId)
-    }
 
     @SuppressLint("MissingPermission")
     fun createStartGeofenceAt(location: Location) {
@@ -73,13 +63,9 @@ class GeofenceManager @Inject constructor(
             .addGeofence(geofence)
             .build()
 
-        // Ensure only one geofence exists per requestId by removing then adding
         geofencingClient.removeGeofences(listOf(requestId)).addOnCompleteListener {
-            geofencingClient.addGeofences(request, geofencePendingIntent).addOnSuccessListener {
-                eventRepository.addMessage(
-                    "Geofence [$requestId] created at ${location.latitude},${location.longitude} radius=${DEFAULT_GEOFENCE_RADIUS_METERS}m",
-                )
-            }.addOnFailureListener { error ->
+            geofencingClient.addGeofences(request, geofencePendingIntent)
+                .addOnFailureListener { error ->
                 eventRepository.addMessage(
                     "Failed to create geofence [$requestId]: ${error.message}",
                 )
@@ -88,15 +74,7 @@ class GeofenceManager @Inject constructor(
     }
 
     fun removeGeofence(requestId: String = DEFAULT_REQUEST_ID) {
-        geofencingClient.removeGeofences(listOf(requestId)).addOnSuccessListener {
-            eventRepository.addMessage(
-                "Geofence removed: $requestId",
-            )
-        }.addOnFailureListener { error ->
-            eventRepository.addMessage(
-                "Failed to remove geofence: ${error.message}",
-            )
-        }
+        geofencingClient.removeGeofences(listOf(requestId))
     }
 
     private val geofencePendingIntent: PendingIntent by lazy {

@@ -80,16 +80,6 @@ class TrackingManager @Inject constructor(
     }
 
     // ------------ GeoFence Handling ------------
-    private fun plantStartGeofence() {
-        coroutineScope.launch {
-            locationManager.getCurrentLocation().collectLatest { location ->
-                if (location != null) {
-                    geofenceManager.createStartGeofenceAt(location)
-                }
-            }
-        }
-    }
-
     private fun plantLastGeofence(location: Location) {
         geofenceManager.createLastGeofenceAt(location)
     }
@@ -100,12 +90,12 @@ class TrackingManager @Inject constructor(
         }
 
         updateState(TrackingState.MOVING)
-        eventRepository.addMessage("GeoFence exit detected, starting active tracking")
+        eventRepository.addMessage("GeoFence exit detected")
         startFgTracking()
 
         lastLocation?.let { current ->
             geofenceManager.createStartGeofenceAt(current)
-        } ?: plantStartGeofence()
+        }
     }
 
     // ------------ Activity Recognition Handling ------------
@@ -132,7 +122,7 @@ class TrackingManager @Inject constructor(
         }
         eventRepository.addMessage("ActivityRecognition: STILL enter, scheduling 3m check")
 
-        stationaryTimerJob?.cancel()
+        cancelStationaryTimer()
         stationaryTimerJob = coroutineScope.launch {
             delay(3.minutes)
             updateState(TrackingState.STATIONARY)
@@ -150,6 +140,7 @@ class TrackingManager @Inject constructor(
     }
 
     private fun cancelStationaryTimer() {
+        eventRepository.addMessage("Cancelling stationary timer")
         stationaryTimerJob?.cancel()
         stationaryTimerJob = null
     }
@@ -175,7 +166,9 @@ class TrackingManager @Inject constructor(
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
                 e is ForegroundServiceStartNotAllowedException
             ) {
-                plantStartGeofence()
+                lastLocation?.let { current ->
+                    geofenceManager.createStartGeofenceAt(current)
+                }
             }
         }
     }
