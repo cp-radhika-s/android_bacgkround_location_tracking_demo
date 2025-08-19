@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.Intent
 import android.location.Location
 import android.os.Build
-import android.os.Build.VERSION
 import com.demo.android_tracking_demo.data.activity.ActivityRecognitionManager
 import com.demo.android_tracking_demo.data.geofence.GeofenceManager
 import com.demo.android_tracking_demo.data.location.LocationManager
@@ -25,6 +24,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.time.Duration.Companion.minutes
 import androidx.core.content.edit
+import timber.log.Timber
 
 @Singleton
 class TrackingManager @Inject constructor(
@@ -51,6 +51,7 @@ class TrackingManager @Inject constructor(
         eventRepository.addMessage("Starting tracking")
         updateState(TrackingState.MOVING)
         activityRecognitionManager.start()
+        plantGeoFence()
         startLocationDistanceLogging()
         startFgTracking()
         prefs.edit { putBoolean(KEY_IS_TRACKING, true) }
@@ -58,10 +59,10 @@ class TrackingManager @Inject constructor(
 
     fun stopTracking() {
         eventRepository.addMessage("Stopping tracking")
+        cancelStationaryTimer()
         activityRecognitionManager.stop()
         locationManager.stopLocationUpdates()
         stopFgTracking()
-        cancelStationaryTimer()
         updateState(TrackingState.STATIONARY)
         geofenceManager.removeGeofence()
         prefs.edit { putBoolean(KEY_IS_TRACKING, false) }
@@ -82,14 +83,12 @@ class TrackingManager @Inject constructor(
                 if (location != null) {
                     geofenceManager.removeGeofence()
                     geofenceManager.createGeofenceAt(location)
-
                 }
             }
         }
     }
 
     fun onGeoFenceExit() {
-        cancelStationaryTimer()
         geofenceManager.removeGeofence()
         updateState(TrackingState.MOVING)
         eventRepository.addMessage("GeoFence exit detected, starting active tracking")
@@ -103,20 +102,41 @@ class TrackingManager @Inject constructor(
         val type = mostProbable.type
         val confidence = mostProbable.confidence
         eventRepository.addMessage("Activity update: type=$type confidence=$confidence")
-        if (confidence < 50) return
+        if (confidence < 50 || type == DetectedActivity.UNKNOWN) return
+
+        val timeSinceStart =
+            System.currentTimeMillis() - result.time
+
+        Timber.d("XXX Activity update: timeSinceStart=$timeSinceStart elapsedRealtimeMillis ${result.time}")
+
         if (type == DetectedActivity.STILL) {
-            onStillEnter()
+            onStillEnter(result.time)
         } else {
             onStillExit()
         }
     }
 
-    private fun onStillEnter() {
-        cancelStationaryTimer()
+    private fun onStillEnter(detectedAt: Long) {
+        if (_trackingState.value == TrackingState.STATIONARY) {
+            return
+        }
         eventRepository.addMessage("ActivityRecognition: STILL enter, scheduling 3m check")
+
+        stationaryTimerJob?.cancel()
+        val timeSinceStart =
+            System.currentTimeMillis() - detectedAt
+
+        if (timeSinceStart >= 180_000) {
+            updateState(TrackingState.STATIONARY)
+            plantGeoFence()
+            stopFgTracking()
+            return
+        }
+
+
         stationaryTimerJob = coroutineScope.launch {
-            delay(3.minutes)
-            eventRepository.addMessage("USER_IS_STATIONARY")
+            val delay = 180_000 - timeSinceStart
+            delay(delay)
             updateState(TrackingState.STATIONARY)
             plantGeoFence()
             stopFgTracking()
@@ -124,7 +144,9 @@ class TrackingManager @Inject constructor(
     }
 
     private fun onStillExit() {
-        eventRepository.addMessage("ActivityRecognition: STILL exit, cancel timer")
+        if (_trackingState.value == TrackingState.MOVING) return
+
+        eventRepository.addMessage("ActivityRecognition: STILL exit")
         updateState(TrackingState.MOVING)
         startFgTracking()
         cancelStationaryTimer()
@@ -140,17 +162,24 @@ class TrackingManager @Inject constructor(
             action = TrackingService.ACTION_START_ACTIVE_TRACKING
         }
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            try {
-                context.startForegroundService(serviceIntent)
-            } catch (e: Exception) {
-                eventRepository.addMessage("Failed to start foreground service: ${e.message}")
-                if (VERSION.SDK_INT >= Build.VERSION_CODES.S && e is ForegroundServiceStartNotAllowedException) {
-                    plantGeoFence()
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                if (context.isAppInForeground()) {
+                    locationManager.startLocationUpdates()
+                } else {
+                    context.startForegroundService(serviceIntent)
                 }
+            } else {
+                context.startService(serviceIntent)
             }
-        } else {
-            context.startService(serviceIntent)
+        } catch (e: Exception) {
+            eventRepository.addMessage("Failed to start tracking service: ${e.message}")
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+                e is ForegroundServiceStartNotAllowedException
+            ) {
+                plantGeoFence()
+            }
         }
     }
 

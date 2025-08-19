@@ -19,13 +19,13 @@ class EventRepository @Inject constructor(
 
     val events: Flow<List<TrackingEvent>> = eventDao.observeAll()
 
-    fun addMessage(message: String, timestampMs: Long = System.currentTimeMillis()) {
+    fun addMessage(message: String, timestampMs: Long? = null) {
         coroutineScope.launch(Dispatchers.IO) {
             kotlin.runCatching {
                 Timber.d(message)
                 eventDao.insert(
                     TrackingEvent(
-                        timestampMs = timestampMs,
+                        timestampMs = timestampMs ?: System.currentTimeMillis(),
                         message = message
                     )
                 )

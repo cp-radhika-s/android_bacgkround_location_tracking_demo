@@ -2,6 +2,7 @@ package com.demo.android_tracking_demo.data
 
 
 import android.Manifest
+import android.app.ActivityManager
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
@@ -41,5 +42,13 @@ fun Context.hasBackgroundLocationPermission(): Boolean {
         ) == PackageManager.PERMISSION_GRANTED
     } else {
         true
+    }
+}
+fun Context.isAppInForeground(): Boolean {
+    val activityManager = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+    val appProcesses = activityManager.runningAppProcesses ?: return false
+    return appProcesses.any {
+        it.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND &&
+                it.processName == packageName
     }
 }

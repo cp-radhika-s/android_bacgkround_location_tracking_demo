@@ -71,7 +71,9 @@ private fun ForegroundServiceSampleScreenContent(
             .padding(top = 32.dp)
             .padding(16.dp)
     ) {
-        Row {
+        Row(
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Button(onClick = onClick) {
                 Text(
                     text = if (serviceRunning) "Stop Service" else "Start Service",

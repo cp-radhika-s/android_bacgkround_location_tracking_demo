@@ -107,7 +107,7 @@ class LocationManager @Inject constructor(
 
     companion object {
         private val DISTANCE_THRESHOLD = 50f // meters
-        private val LOCATION_UPDATES_INTERVAL_MS = 30.seconds.inWholeMilliseconds
+        private val LOCATION_UPDATES_INTERVAL_MS = 10.seconds.inWholeMilliseconds
     }
 }
 

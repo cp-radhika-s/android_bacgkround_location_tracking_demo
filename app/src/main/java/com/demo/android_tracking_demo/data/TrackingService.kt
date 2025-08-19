@@ -24,13 +24,11 @@ class TrackingService : Service() {
     lateinit var eventRepository: EventRepository
 
     override fun onBind(intent: Intent?): IBinder? {
-        Timber.d("TrackingService onBind")
         return null
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startAsForegroundService()
-        eventRepository.addMessage("Starting active tracking with fused provider")
         locationManager.startLocationUpdates()
         return START_STICKY
     }

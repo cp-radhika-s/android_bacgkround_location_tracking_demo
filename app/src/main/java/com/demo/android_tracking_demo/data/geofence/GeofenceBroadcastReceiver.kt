@@ -18,7 +18,14 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
     @Inject lateinit var eventRepository: EventRepository
 
     override fun onReceive(context: Context, intent: Intent) {
-        val event = GeofencingEvent.fromIntent(intent) ?: return
+        val parsedEvent = GeofencingEvent.fromIntent(intent)
+        eventRepository.addMessage("Geofence BroadcastReceiver onReceive data ${intent.data} event $parsedEvent")
+
+        val event = parsedEvent ?: run {
+            val extrasKeys = intent.extras?.keySet()?.joinToString() ?: "none"
+            eventRepository.addMessage("GeofenceBroadcastReceiver: no GeofencingEvent in intent. extras keys=$extrasKeys")
+            return
+        }
         if (event.hasError()) {
             eventRepository.addMessage("Geofence error: ${event.errorCode}")
             return
