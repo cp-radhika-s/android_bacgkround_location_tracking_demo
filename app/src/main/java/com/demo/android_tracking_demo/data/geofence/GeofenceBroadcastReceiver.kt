@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import com.demo.android_tracking_demo.data.EventRepository
+import com.demo.android_tracking_demo.data.TrackingManager
 import com.demo.android_tracking_demo.data.TrackingService
 import com.google.android.gms.location.Geofence
 import com.google.android.gms.location.GeofencingEvent
@@ -13,6 +14,7 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class GeofenceBroadcastReceiver : BroadcastReceiver() {
 
+    @Inject lateinit var trackingManager: TrackingManager
     @Inject lateinit var eventRepository: EventRepository
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -34,14 +36,7 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
         eventRepository.addMessage("Geofence transition: $transitionLabel ids=$ids")
 
         if (transition == Geofence.GEOFENCE_TRANSITION_EXIT) {
-            val serviceIntent = Intent(context, TrackingService::class.java).apply {
-                action = TrackingService.ACTION_START_ACTIVE_TRACKING
-            }
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                context.startForegroundService(serviceIntent)
-            } else {
-                context.startService(serviceIntent)
-            }
+            trackingManager.onGeoFenceExit()
         }
     }
 }

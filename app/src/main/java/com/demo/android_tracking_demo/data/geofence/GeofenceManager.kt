@@ -15,12 +15,14 @@ import com.demo.android_tracking_demo.data.hasFineLocationPermission
 import com.google.android.gms.location.Geofence
 import com.google.android.gms.location.GeofencingClient
 import com.google.android.gms.location.GeofencingRequest
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.time.Duration.Companion.minutes
 
 @Singleton
 class GeofenceManager @Inject constructor(
-    private val appContext: Context,
+    @param:ApplicationContext private val appContext: Context,
     private val eventRepository: EventRepository,
     private val geofencingClient: GeofencingClient
 ) {
@@ -36,13 +38,13 @@ class GeofenceManager @Inject constructor(
                 location.latitude,
                 location.longitude,
                 DEFAULT_GEOFENCE_RADIUS_METERS
-            )
+            ).setNotificationResponsiveness(30_000)
             .setExpirationDuration(Geofence.NEVER_EXPIRE)
             .setTransitionTypes(DEFAULT_TRANSITIONS)
             .build()
 
         val request = GeofencingRequest.Builder()
-            .setInitialTrigger(GeofencingRequest.INITIAL_TRIGGER_DWELL)
+            .setInitialTrigger(GeofencingRequest.INITIAL_TRIGGER_EXIT)
             .addGeofence(geofence)
             .build()
 

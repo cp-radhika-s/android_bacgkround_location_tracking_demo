@@ -37,20 +37,8 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideEventRepository(dao: TrackingEventDao): EventRepository = EventRepository(dao)
-
-    @Provides
-    @Singleton
     fun provideFusedLocationProviderClient(@ApplicationContext context: Context) =
         LocationServices.getFusedLocationProviderClient(context)
-
-    @Provides
-    @Singleton
-    fun provideLocationManager(
-        @ApplicationContext context: Context,
-        repository: EventRepository,
-        fusedClient: com.google.android.gms.location.FusedLocationProviderClient
-    ): LocationManager = LocationManager(context, repository, fusedClient)
 
     @Provides
     @Singleton
@@ -59,24 +47,9 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideGeofenceManager(
-        @ApplicationContext context: Context,
-        repository: EventRepository,
-        geofencingClient: GeofencingClient
-    ): GeofenceManager = GeofenceManager(context, repository, geofencingClient)
-
-    @Provides
-    @Singleton
     fun provideActivityRecognitionClient(@ApplicationContext context: Context): ActivityRecognitionClient =
         ActivityRecognition.getClient(context)
 
-    @Provides
-    @Singleton
-    fun provideActivityRecognitionManager(
-        @ApplicationContext context: Context,
-        repository: EventRepository,
-        activityRecognitionClient: ActivityRecognitionClient
-    ): ActivityRecognitionManager = ActivityRecognitionManager(context, repository, activityRecognitionClient)
 }
 
 

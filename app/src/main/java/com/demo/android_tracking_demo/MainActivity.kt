@@ -1,36 +1,31 @@
 package com.demo.android_tracking_demo
 
-import android.content.ComponentName
-import android.content.Intent
-import android.content.ServiceConnection
 import android.os.Build
 import android.os.Bundle
-import android.os.IBinder
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import android.Manifest
+import android.content.pm.PackageManager
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.lifecycleScope
-import com.demo.android_tracking_demo.data.TrackingService
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.launch
 import timber.log.Timber
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.demo.android_tracking_demo.data.location.LocationManager
+import com.demo.android_tracking_demo.data.TrackingManager
 import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     @Inject
-    lateinit var locationManager: LocationManager
+    lateinit var trackingManager: TrackingManager
+
+
     private var isServiceRunning by mutableStateOf<Boolean>(false)
 
     private val notificationPermissionLauncher =
@@ -42,18 +37,24 @@ class MainActivity : ComponentActivity() {
     private val locationPermissionRequest = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
-        when {
-            permissions.getOrDefault(android.Manifest.permission.ACCESS_FINE_LOCATION, false) -> {
-                startForegroundService()
-            }
+        val hasFine = permissions.getOrDefault(Manifest.permission.ACCESS_FINE_LOCATION, false)
+        val hasCoarse = permissions.getOrDefault(Manifest.permission.ACCESS_COARSE_LOCATION, false)
+        val hasLocation = hasFine || hasCoarse
 
-            permissions.getOrDefault(android.Manifest.permission.ACCESS_COARSE_LOCATION, false) -> {
-                startForegroundService()
-            }
+        val needsActivityRecognition = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+        val hasActivityRecognition = if (needsActivityRecognition) {
+            permissions.getOrDefault(Manifest.permission.ACTIVITY_RECOGNITION, false)
+        } else true
 
-            else -> {
-                Toast.makeText(this, "Location permission is required!", Toast.LENGTH_SHORT).show()
-            }
+        if (hasLocation && hasActivityRecognition) {
+            trackingManager.startTracking()
+            isServiceRunning = true
+        } else {
+            Toast.makeText(
+                this,
+                "Grant location and activity recognition permissions to start.",
+                Toast.LENGTH_SHORT
+            ).show()
         }
     }
 
@@ -98,29 +99,49 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun onStartOrStopForegroundServiceClick() {
-        if (!checkAndRequestNotificationPermission()) {
-            locationPermissionRequest.launch(
-                arrayOf(
-                    android.Manifest.permission.ACCESS_FINE_LOCATION,
-                    android.Manifest.permission.ACCESS_COARSE_LOCATION
-                )
-            )
-        } else {
-            if (isServiceRunning) {
-                stopService(Intent(this, TrackingService::class.java))
-                isServiceRunning = false
-                Timber.d("Service stopped")
-            } else {
-                startForegroundService()
-                isServiceRunning = true
-                Timber.d("Service started")
-            }
-        }
-    }
+        if (!checkAndRequestNotificationPermission()) return
 
-    private fun startForegroundService() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(Intent(this, TrackingService::class.java))
+        if (isServiceRunning) {
+            trackingManager.stopTracking()
+            isServiceRunning = false
+            Timber.d("Service stopped")
+            return
+        }
+
+        val hasLocationPermission =
+            ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED ||
+                    ContextCompat.checkSelfPermission(
+                        this,
+                        Manifest.permission.ACCESS_COARSE_LOCATION
+                    ) == PackageManager.PERMISSION_GRANTED
+
+        val hasActivityRecognitionPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACTIVITY_RECOGNITION
+            ) == PackageManager.PERMISSION_GRANTED
+        } else true
+
+        if (hasLocationPermission && hasActivityRecognitionPermission) {
+            trackingManager.startTracking()
+            isServiceRunning = true
+            Timber.d("Service started")
+        } else {
+            val permissionsToRequest = buildList {
+                if (!hasLocationPermission) {
+                    add(Manifest.permission.ACCESS_FINE_LOCATION)
+                    add(Manifest.permission.ACCESS_COARSE_LOCATION)
+                }
+                if (!hasActivityRecognitionPermission && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    add(Manifest.permission.ACTIVITY_RECOGNITION)
+                }
+            }.toTypedArray()
+            if (permissionsToRequest.isNotEmpty()) {
+                locationPermissionRequest.launch(permissionsToRequest)
+            }
         }
     }
 }

@@ -49,8 +49,7 @@
 
         <receiver
             android:name=".data.activity.ActivityTransitionReceiver"
-            android:exported="false"
-            android:permission="android.permission.ACTIVITY_RECOGNITION">
+            android:exported="false">
         </receiver>
 
     </application>

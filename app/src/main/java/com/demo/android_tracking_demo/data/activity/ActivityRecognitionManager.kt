@@ -16,6 +16,7 @@ import com.google.android.gms.location.ActivityTransitionRequest
 import com.google.android.gms.location.ActivityTransitionResult
 import com.google.android.gms.location.ActivityRecognitionResult
 import com.google.android.gms.location.DetectedActivity
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
@@ -28,24 +29,15 @@ import timber.log.Timber
 
 @Singleton
 class ActivityRecognitionManager @Inject constructor(
-    private val appContext: Context,
-    private val eventRepository: EventRepository,
+    @param:ApplicationContext private val appContext: Context,
     private val activityRecognitionClient: ActivityRecognitionClient
 ) {
-    private val coroutineScope: CoroutineScope =
-        CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    private var stationaryListener: (() -> Unit)? = null
-    private var stationaryTimerJob: Job? = null
-
-    fun registerStationaryListener(listener: () -> Unit) {
-        stationaryListener = listener
-    }
-
     @SuppressLint("MissingPermission")
     fun start() {
 
         if (!appContext.hasActivityRecognitionPermission()) return
 
+        Timber.d("Activity updates requested")
         activityRecognitionClient.requestActivityUpdates(
             STATIONARY_DELAY_MS,
             activityUpdatesPendingIntent
@@ -60,52 +52,8 @@ class ActivityRecognitionManager @Inject constructor(
         activityRecognitionClient.removeActivityUpdates(activityUpdatesPendingIntent)
             .addOnSuccessListener { }
             .addOnFailureListener { }
-        cancelStationaryTimer()
-        stationaryListener = null
     }
 
-    fun handleActivityUpdate(intent: Intent) {
-        val result = ActivityRecognitionResult.extractResult(intent) ?: return
-        val mostProbable = result.mostProbableActivity
-        val type = mostProbable.type
-        val confidence = mostProbable.confidence
-        eventRepository.addMessage("Activity update: type=$type confidence=$confidence")
-        if (type == DetectedActivity.STILL) {
-            onStillEnter()
-        } else {
-            onStillExit()
-        }
-    }
-
-    private fun onStillEnter() {
-        cancelStationaryTimer()
-        eventRepository.addMessage("ActivityRecognition: STILL enter, scheduling 30s check")
-        stationaryTimerJob = coroutineScope.launch {
-            delay(STATIONARY_DELAY_MS)
-            eventRepository.addMessage("USER_IS_STATIONARY")
-            stationaryListener?.invoke()
-        }
-    }
-
-    private fun onStillExit() {
-        eventRepository.addMessage("ActivityRecognition: STILL exit, cancel timer")
-
-        val serviceIntent = Intent(appContext, TrackingService::class.java).apply {
-            action = TrackingService.ACTION_START_ACTIVE_TRACKING
-        }
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-            appContext.startForegroundService(serviceIntent)
-        } else {
-            appContext.startService(serviceIntent)
-        }
-
-        cancelStationaryTimer()
-    }
-
-    private fun cancelStationaryTimer() {
-        stationaryTimerJob?.cancel()
-        stationaryTimerJob = null
-    }
 
     private val activityUpdatesPendingIntent: PendingIntent by lazy {
         val intent = Intent(appContext, ActivityTransitionReceiver::class.java)
@@ -113,7 +61,7 @@ class ActivityRecognitionManager @Inject constructor(
             appContext,
             102,
             intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
         )
     }
 

@@ -14,15 +14,23 @@ import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
+import com.google.android.gms.location.Priority
+import com.google.android.gms.tasks.CancellationToken
+import com.google.android.gms.tasks.CancellationTokenSource
+import com.google.android.gms.tasks.OnTokenCanceledListener
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.callbackFlow
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.time.Duration.Companion.seconds
 
 @Singleton
 class LocationManager @Inject constructor(
-    private val appContext: Context,
+    @param:ApplicationContext private val appContext: Context,
     private val eventRepository: EventRepository,
     private val fusedLocationClient: FusedLocationProviderClient
 ) {
@@ -54,7 +62,12 @@ class LocationManager @Inject constructor(
             return
         }
 
-        val request = LocationRequest.Builder(LOCATION_UPDATES_INTERVAL_MS).build()
+        val request =
+            LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, LOCATION_UPDATES_INTERVAL_MS)
+                .setMinUpdateIntervalMillis(LOCATION_UPDATES_INTERVAL_MS)
+                .setMinUpdateDistanceMeters(DISTANCE_THRESHOLD)
+                .setWaitForAccurateLocation(true)
+                .build()
         fusedLocationClient.requestLocationUpdates(
             request,
             locationCallback,
@@ -67,31 +80,38 @@ class LocationManager @Inject constructor(
     }
 
     @SuppressLint("MissingPermission")
-    fun getLastKnownLocation(onResult: (Location?) -> Unit) {
+    fun getCurrentLocation(): Flow<Location?> = callbackFlow {
         if (!appContext.hasFineLocationPermission()) {
-            onResult(null)
-            return
+            trySend(null)
+            close()
+            return@callbackFlow
         }
-        fusedLocationClient.lastLocation
-            .addOnSuccessListener { location ->
-                if (location != null) {
-                    eventRepository.addMessage(
-                        "Last known location: ${location.latitude}-${location.longitude}",
-                        location.time
-                    )
-                } else {
-                    eventRepository.addMessage("Last known location: null")
-                }
-                onResult(location)
+
+        val tokenSource = CancellationTokenSource()
+
+        fusedLocationClient.getCurrentLocation(
+            Priority.PRIORITY_HIGH_ACCURACY,
+            tokenSource.token
+        ).addOnSuccessListener { location: Location? ->
+            if (location == null) {
+                eventRepository.addMessage("Last known location: null")
             }
-            .addOnFailureListener { error ->
-                eventRepository.addMessage("Failed to get last known location: ${error.message}")
-                onResult(null)
-            }
+            trySend(location).isSuccess
+            close()
+        }.addOnFailureListener { error ->
+            eventRepository.addMessage("Failed to get last known location: ${error.message}")
+            trySend(null).isSuccess
+            close(error)
+        }
+
+        awaitClose {
+            tokenSource.cancel()
+        }
     }
 
     companion object {
-        private val LOCATION_UPDATES_INTERVAL_MS = 1.seconds.inWholeMilliseconds
+        private val DISTANCE_THRESHOLD = 50f // meters
+        private val LOCATION_UPDATES_INTERVAL_MS = 30.seconds.inWholeMilliseconds
     }
 }
 

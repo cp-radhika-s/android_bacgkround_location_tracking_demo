@@ -23,34 +23,15 @@ class TrackingService : Service() {
     @Inject
     lateinit var eventRepository: EventRepository
 
-    @Inject
-    lateinit var activityRecognitionManager: ActivityRecognitionManager
-
-    @Inject
-    lateinit var geofenceManager: GeofenceManager
-
     override fun onBind(intent: Intent?): IBinder? {
         Timber.d("TrackingService onBind")
         return null
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        Timber.d("TrackingService onStartCommand action=${intent?.action}")
         startAsForegroundService()
-        when (intent?.action) {
-            ACTION_START_ACTIVE_TRACKING -> {
-                eventRepository.addMessage("Starting active tracking with fused provider")
-                locationManager.startLocationUpdates()
-            }
-            else -> {
-                eventRepository.addMessage("Service started: waiting for activity state")
-                activityRecognitionManager.registerStationaryListener {
-                    eventRepository.addMessage("State: IDLE -> STATIONARY; fetching last known location")
-                    tryCreateStationaryGeofence()
-                }
-                activityRecognitionManager.start()
-            }
-        }
+        eventRepository.addMessage("Starting active tracking with fused provider")
+        locationManager.startLocationUpdates()
         return START_STICKY
     }
 
@@ -62,7 +43,6 @@ class TrackingService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         locationManager.stopLocationUpdates()
-        activityRecognitionManager.stop()
         eventRepository.addMessage("Service destroyed")
     }
 
@@ -81,23 +61,8 @@ class TrackingService : Service() {
         )
     }
 
-    fun stopForegroundService() {
-        stopSelf()
-    }
-
-    private fun tryCreateStationaryGeofence() {
-        locationManager.getLastKnownLocation { location ->
-            if (location == null) {
-                eventRepository.addMessage("Cannot create geofence: last location is null")
-                return@getLastKnownLocation
-            }
-            geofenceManager.createGeofenceAt(location)
-            eventRepository.addMessage("Stationary geofence planted; stopping service")
-            stopForegroundService()
-        }
-    }
-
     companion object {
-        const val ACTION_START_ACTIVE_TRACKING = "com.demo.android_tracking_demo.action.START_ACTIVE_TRACKING"
+        const val ACTION_START_ACTIVE_TRACKING =
+            "com.demo.android_tracking_demo.action.START_ACTIVE_TRACKING"
     }
 }

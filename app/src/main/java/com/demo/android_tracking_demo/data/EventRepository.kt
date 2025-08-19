@@ -8,8 +8,11 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import timber.log.Timber
+import javax.inject.Inject
+import javax.inject.Singleton
 
-class EventRepository(
+@Singleton
+class EventRepository @Inject constructor(
     private val eventDao: TrackingEventDao
 ) {
     private val coroutineScope = CoroutineScope(Job())
