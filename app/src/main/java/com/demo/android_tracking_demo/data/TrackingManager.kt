@@ -86,6 +86,7 @@ class TrackingManager @Inject constructor(
             triggeringIds.forEach { id -> geofenceManager.removeGeofence(id) }
         }
 
+        cancelStationaryTimer()
         updateState(TrackingState.MOVING)
         eventRepository.addMessage("GeoFence exit detected - triggeringIds $triggeringIds")
         startFgTracking()
