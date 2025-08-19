@@ -41,10 +41,6 @@ class ActivityRecognitionManager @Inject constructor(
             ActivityTransition.Builder()
                 .setActivityType(DetectedActivity.STILL)
                 .setActivityTransition(ActivityTransition.ACTIVITY_TRANSITION_ENTER)
-                .build(),
-            ActivityTransition.Builder()
-                .setActivityType(DetectedActivity.STILL)
-                .setActivityTransition(ActivityTransition.ACTIVITY_TRANSITION_EXIT)
                 .build()
         )
 

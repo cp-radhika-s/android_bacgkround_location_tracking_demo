@@ -5,13 +5,10 @@ import android.content.Context
 import android.content.Intent
 import android.location.Location
 import android.os.Build
-import android.os.SystemClock
 import com.demo.android_tracking_demo.data.activity.ActivityRecognitionManager
 import com.demo.android_tracking_demo.data.geofence.GeofenceManager
 import com.demo.android_tracking_demo.data.location.LocationManager
-import com.google.android.gms.location.ActivityRecognitionResult
 import com.google.android.gms.location.ActivityTransitionResult
-import com.google.android.gms.location.ActivityTransition
 import com.google.android.gms.location.DetectedActivity
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
@@ -27,7 +24,6 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.time.Duration.Companion.minutes
 import androidx.core.content.edit
-import timber.log.Timber
 
 @Singleton
 class TrackingManager @Inject constructor(
@@ -63,7 +59,6 @@ class TrackingManager @Inject constructor(
         eventRepository.addMessage("Stopping tracking")
         cancelStationaryTimer()
         activityRecognitionManager.stop()
-        locationManager.stopLocationUpdates()
         stopFgTracking()
         updateState(TrackingState.STATIONARY)
         geofenceManager.removeGeofence(GeofenceManager.START_GEOFENCE_ID)
@@ -102,41 +97,20 @@ class TrackingManager @Inject constructor(
     fun handleActivityTransition(intent: Intent) {
         val result = ActivityTransitionResult.extractResult(intent) ?: return
         result.transitionEvents.forEach { event ->
-            val activityType = event.activityType
-            val transitionType = event.transitionType
-            eventRepository.addMessage("Activity transition: type=$activityType transition=$transitionType")
-
-            if (activityType == DetectedActivity.STILL) {
-                if (transitionType == ActivityTransition.ACTIVITY_TRANSITION_ENTER) {
-                    onStillEnter()
-                } else if (transitionType == ActivityTransition.ACTIVITY_TRANSITION_EXIT) {
-                    onStillExit()
+            eventRepository.addMessage("Activity transition: type=${event.activityType} transition=${event.transitionType}")
+            if (_trackingState.value == TrackingState.MOVING) {
+                if (event.activityType == DetectedActivity.STILL) {
+                    stationaryTimerJob = coroutineScope.launch {
+                        delay(3.minutes)
+                        eventRepository.addMessage("ActivityRecognition: STILL detected")
+                        updateState(TrackingState.STATIONARY)
+                        stopFgTracking()
+                    }
+                } else {
+                    cancelStationaryTimer()
                 }
             }
         }
-    }
-
-    private fun onStillEnter() {
-        if (_trackingState.value == TrackingState.STATIONARY) {
-            return
-        }
-        eventRepository.addMessage("ActivityRecognition: STILL enter, scheduling 3m check")
-
-        cancelStationaryTimer()
-        stationaryTimerJob = coroutineScope.launch {
-            delay(3.minutes)
-            updateState(TrackingState.STATIONARY)
-            stopFgTracking()
-        }
-    }
-
-    private fun onStillExit() {
-        if (_trackingState.value == TrackingState.MOVING) return
-
-        eventRepository.addMessage("ActivityRecognition: STILL exit")
-        updateState(TrackingState.MOVING)
-        startFgTracking()
-        cancelStationaryTimer()
     }
 
     private fun cancelStationaryTimer() {
@@ -146,17 +120,17 @@ class TrackingManager @Inject constructor(
     }
 
     private fun startFgTracking() {
+        val shouldStartForeground =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) !context.isAppInForeground() else false
+
         val serviceIntent = Intent(context, TrackingService::class.java).apply {
-            action = TrackingService.ACTION_START_ACTIVE_TRACKING
+            action =
+                if (shouldStartForeground) TrackingService.ACTION_START_FG_TRACKING else TrackingService.ACTION_START_TRACKING
         }
 
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                if (context.isAppInForeground()) {
-                    locationManager.startLocationUpdates()
-                } else {
-                    context.startForegroundService(serviceIntent)
-                }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && shouldStartForeground) {
+                context.startForegroundService(serviceIntent)
             } else {
                 context.startService(serviceIntent)
             }
@@ -182,11 +156,9 @@ class TrackingManager @Inject constructor(
         locationLoggingJob = coroutineScope.launch {
             locationManager.locationFlow.collectLatest { location ->
                 if (location == null) return@collectLatest
-                val distanceMeters = lastLocation?.distanceTo(location) ?: 0f
+                val distanceMeters = lastLocation?.distanceTo(location)?.toDouble()?.toInt() ?: 0
                 eventRepository.addMessage(
-                    "Location received - ${location.latitude}:${location.longitude} distance: ${
-                        distanceMeters.toDouble().toInt()
-                    }m",
+                    "Location received - ${location.latitude}:${location.longitude} distance: $distanceMeters m",
                     location.time
                 )
                 lastLocation = location
@@ -213,7 +185,7 @@ class TrackingManager @Inject constructor(
     companion object {
         private const val PREFS_NAME = "tracking_prefs"
         private const val KEY_IS_TRACKING = "is_tracking"
-        private const val KEY_STATE = "state"
+        private const val KEY_STATE = "tracking_state"
     }
 
 

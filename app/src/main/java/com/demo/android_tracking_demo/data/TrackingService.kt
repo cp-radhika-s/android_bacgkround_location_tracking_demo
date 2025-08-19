@@ -28,7 +28,14 @@ class TrackingService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        startAsForegroundService()
+        val action = intent?.action
+        val startForeground = when (action) {
+            ACTION_START_FG_TRACKING -> true
+            ACTION_START_TRACKING -> false
+            else -> true
+        }
+
+        if (startForeground) startAsForegroundService()
         locationManager.startLocationUpdates()
         return START_STICKY
     }
@@ -39,9 +46,9 @@ class TrackingService : Service() {
     }
 
     override fun onDestroy() {
-        super.onDestroy()
-        locationManager.stopLocationUpdates()
         eventRepository.addMessage("Service destroyed")
+        locationManager.stopLocationUpdates()
+        super.onDestroy()
     }
 
     private fun startAsForegroundService() {
@@ -60,7 +67,9 @@ class TrackingService : Service() {
     }
 
     companion object {
-        const val ACTION_START_ACTIVE_TRACKING =
-            "com.demo.android_tracking_demo.action.START_ACTIVE_TRACKING"
+        const val ACTION_START_FG_TRACKING =
+            "com.demo.android_tracking_demo.action.START_FG_TRACKING"
+        const val ACTION_START_TRACKING =
+            "com.demo.android_tracking_demo.action.START_TRACKING"
     }
 }
