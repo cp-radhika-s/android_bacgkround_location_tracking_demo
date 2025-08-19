@@ -1,7 +1,7 @@
-package com.demo.android_tracking_demo.data
+package com.demo.android_tracking_demo.data.domain
 
-import com.demo.android_tracking_demo.data.local.TrackingEvent
-import com.demo.android_tracking_demo.data.local.TrackingEventDao
+import com.demo.android_tracking_demo.data.domain.local.TrackingEvent
+import com.demo.android_tracking_demo.data.domain.local.TrackingEventDao
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -21,7 +21,7 @@ class EventRepository @Inject constructor(
 
     fun addMessage(message: String, timestampMs: Long? = null) {
         coroutineScope.launch(Dispatchers.IO) {
-            kotlin.runCatching {
+            runCatching {
                 Timber.d(message)
                 eventDao.insert(
                     TrackingEvent(

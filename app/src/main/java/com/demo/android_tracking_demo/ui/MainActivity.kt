@@ -1,4 +1,4 @@
-package com.demo.android_tracking_demo
+package com.demo.android_tracking_demo.ui
 
 import android.os.Build
 import android.os.Bundle

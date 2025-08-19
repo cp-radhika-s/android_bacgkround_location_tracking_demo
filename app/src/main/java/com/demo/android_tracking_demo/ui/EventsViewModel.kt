@@ -1,9 +1,9 @@
-package com.demo.android_tracking_demo
+package com.demo.android_tracking_demo.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.demo.android_tracking_demo.data.EventRepository
-import com.demo.android_tracking_demo.data.local.TrackingEvent
+import com.demo.android_tracking_demo.data.domain.EventRepository
+import com.demo.android_tracking_demo.data.domain.local.TrackingEvent
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted

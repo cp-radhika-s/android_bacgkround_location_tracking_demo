@@ -24,6 +24,8 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.time.Duration.Companion.minutes
 import androidx.core.content.edit
+import com.demo.android_tracking_demo.data.domain.EventRepository
+import com.demo.android_tracking_demo.data.domain.isAppInForeground
 
 @Singleton
 class TrackingManager @Inject constructor(
@@ -85,7 +87,7 @@ class TrackingManager @Inject constructor(
         }
 
         updateState(TrackingState.MOVING)
-        eventRepository.addMessage("GeoFence exit detected")
+        eventRepository.addMessage("GeoFence exit detected - triggeringIds $triggeringIds")
         startFgTracking()
 
         lastLocation?.let { current ->
@@ -162,9 +164,7 @@ class TrackingManager @Inject constructor(
                     location.time
                 )
                 lastLocation = location
-                if (_trackingState.value == TrackingState.MOVING) {
-                    plantLastGeofence(location)
-                }
+                plantLastGeofence(location)
             }
         }
     }

@@ -3,9 +3,8 @@ package com.demo.android_tracking_demo.data.geofence
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import com.demo.android_tracking_demo.data.EventRepository
+import com.demo.android_tracking_demo.data.domain.EventRepository
 import com.demo.android_tracking_demo.data.TrackingManager
-import com.demo.android_tracking_demo.data.TrackingService
 import com.google.android.gms.location.Geofence
 import com.google.android.gms.location.GeofencingEvent
 import dagger.hilt.android.AndroidEntryPoint

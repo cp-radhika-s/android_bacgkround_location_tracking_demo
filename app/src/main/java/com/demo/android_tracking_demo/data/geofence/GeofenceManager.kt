@@ -1,26 +1,20 @@
 package com.demo.android_tracking_demo.data.geofence
 
-import android.Manifest
 import android.annotation.SuppressLint
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.location.Location
 import android.os.Build
-import androidx.annotation.RequiresPermission
-import androidx.core.app.ActivityCompat
-import com.demo.android_tracking_demo.data.EventRepository
-import com.demo.android_tracking_demo.data.geofence.GeofenceBroadcastReceiver
-import com.demo.android_tracking_demo.data.hasFineLocationPermission
-import com.demo.android_tracking_demo.data.hasBackgroundLocationPermission
+import com.demo.android_tracking_demo.data.domain.EventRepository
+import com.demo.android_tracking_demo.data.domain.hasFineLocationPermission
+import com.demo.android_tracking_demo.data.domain.hasBackgroundLocationPermission
 import com.google.android.gms.location.Geofence
 import com.google.android.gms.location.GeofencingClient
 import com.google.android.gms.location.GeofencingRequest
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlin.time.Duration.Companion.minutes
 
 @Singleton
 class GeofenceManager @Inject constructor(

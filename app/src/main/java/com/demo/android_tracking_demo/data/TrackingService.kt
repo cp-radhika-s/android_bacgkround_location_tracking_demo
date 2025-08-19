@@ -3,17 +3,14 @@ package com.demo.android_tracking_demo.data
 import android.app.Service
 import android.content.Intent
 import android.content.pm.ServiceInfo
-import android.os.Binder
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.ServiceCompat
 import com.demo.android_tracking_demo.data.location.LocationManager
-import com.demo.android_tracking_demo.data.activity.ActivityRecognitionManager
-import com.demo.android_tracking_demo.data.geofence.GeofenceManager
+import com.demo.android_tracking_demo.data.domain.EventRepository
+import com.demo.android_tracking_demo.data.domain.NotificationsHelper
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.flow.StateFlow
 import javax.inject.Inject
-import timber.log.Timber
 
 @AndroidEntryPoint
 class TrackingService : Service() {

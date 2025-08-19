@@ -1,4 +1,4 @@
-package com.demo.android_tracking_demo.data
+package com.demo.android_tracking_demo.data.domain
 
 
 import android.Manifest

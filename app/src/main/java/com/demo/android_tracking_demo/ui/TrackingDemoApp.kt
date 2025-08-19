@@ -1,7 +1,7 @@
-package com.demo.android_tracking_demo
+package com.demo.android_tracking_demo.ui
 
 import android.app.Application
-import com.demo.android_tracking_demo.data.NotificationsHelper
+import com.demo.android_tracking_demo.data.domain.NotificationsHelper
 import dagger.hilt.android.HiltAndroidApp
 import timber.log.Timber
 

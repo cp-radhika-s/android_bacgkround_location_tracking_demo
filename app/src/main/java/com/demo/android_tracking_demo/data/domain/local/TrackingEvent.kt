@@ -1,4 +1,4 @@
-package com.demo.android_tracking_demo.data.local
+package com.demo.android_tracking_demo.data.domain.local
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey

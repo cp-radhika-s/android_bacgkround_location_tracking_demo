@@ -1,30 +1,17 @@
 package com.demo.android_tracking_demo.data.activity
 
-import android.Manifest
 import android.annotation.SuppressLint
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import androidx.annotation.RequiresPermission
-import com.demo.android_tracking_demo.data.EventRepository
-import com.demo.android_tracking_demo.data.TrackingService
-import com.demo.android_tracking_demo.data.hasActivityRecognitionPermission
-import com.google.android.gms.location.ActivityRecognition
+import com.demo.android_tracking_demo.data.domain.hasActivityRecognitionPermission
 import com.google.android.gms.location.ActivityRecognitionClient
 import com.google.android.gms.location.ActivityTransition
 import com.google.android.gms.location.ActivityTransitionRequest
-import com.google.android.gms.location.ActivityTransitionResult
-import com.google.android.gms.location.ActivityRecognitionResult
 import com.google.android.gms.location.DetectedActivity
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import timber.log.Timber
 
 @Singleton

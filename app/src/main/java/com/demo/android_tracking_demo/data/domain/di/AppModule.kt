@@ -1,12 +1,8 @@
-package com.demo.android_tracking_demo.data.di
+package com.demo.android_tracking_demo.data.domain.di
 
 import android.content.Context
-import com.demo.android_tracking_demo.data.EventRepository
-import com.demo.android_tracking_demo.data.location.LocationManager
-import com.demo.android_tracking_demo.data.geofence.GeofenceManager
-import com.demo.android_tracking_demo.data.activity.ActivityRecognitionManager
-import com.demo.android_tracking_demo.data.local.AppDatabase
-import com.demo.android_tracking_demo.data.local.TrackingEventDao
+import com.demo.android_tracking_demo.data.domain.local.AppDatabase
+import com.demo.android_tracking_demo.data.domain.local.TrackingEventDao
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.GeofencingClient
 import com.google.android.gms.location.ActivityRecognition
