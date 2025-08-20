@@ -119,6 +119,7 @@ class TrackingManager @Inject constructor(
             if (_trackingState.value == TrackingState.MOVING
                 && event.transitionType == ActivityTransition.ACTIVITY_TRANSITION_ENTER
             ) {
+                if (stationaryTimerJob?.isActive == true) return
                 stationaryTimerJob = coroutineScope.launch {
                     delay(3.minutes)
                     eventRepository.addMessage("ActivityRecognition: STILL detected")
