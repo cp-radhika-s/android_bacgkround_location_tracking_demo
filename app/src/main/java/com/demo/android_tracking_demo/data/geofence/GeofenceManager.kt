@@ -59,23 +59,32 @@ class GeofenceManager @Inject constructor(
 
         geofencingClient.removeGeofences(listOf(requestId)).addOnCompleteListener {
             geofencingClient.addGeofences(request, geofencePendingIntent)
+                .addOnSuccessListener {
+                    eventRepository.addMessage("Geofence [$requestId] created successfully - ${location.latitude}, ${location.longitude}")
+                }
                 .addOnFailureListener { error ->
-                eventRepository.addMessage(
-                    "Failed to create geofence [$requestId]: ${error.message}",
-                )
-            }
+                    eventRepository.addMessage(
+                        "Failed to create geofence [$requestId]: ${error.message}",
+                    )
+                }
         }
     }
 
     fun removeGeofence(requestId: String = DEFAULT_REQUEST_ID) {
+        eventRepository.addMessage("Removing geofence with ID: $requestId")
         geofencingClient.removeGeofences(listOf(requestId))
+    }
+
+    fun removeAll() {
+        removeGeofence(START_GEOFENCE_ID)
+        removeGeofence(LAST_GEOFENCE_ID)
     }
 
     private val geofencePendingIntent: PendingIntent by lazy {
         val intent = Intent(appContext, GeofenceBroadcastReceiver::class.java)
         val flags = PendingIntent.FLAG_UPDATE_CURRENT or (
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) PendingIntent.FLAG_MUTABLE else 0
-        )
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) PendingIntent.FLAG_MUTABLE else 0
+                )
         PendingIntent.getBroadcast(
             appContext,
             0,

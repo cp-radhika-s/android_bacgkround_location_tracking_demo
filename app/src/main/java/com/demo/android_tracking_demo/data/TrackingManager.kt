@@ -9,7 +9,6 @@ import com.demo.android_tracking_demo.data.activity.ActivityRecognitionManager
 import com.demo.android_tracking_demo.data.geofence.GeofenceManager
 import com.demo.android_tracking_demo.data.location.LocationManager
 import com.google.android.gms.location.ActivityTransitionResult
-import com.google.android.gms.location.DetectedActivity
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -26,6 +25,7 @@ import kotlin.time.Duration.Companion.minutes
 import androidx.core.content.edit
 import com.demo.android_tracking_demo.data.domain.EventRepository
 import com.demo.android_tracking_demo.data.domain.isAppInForeground
+import com.google.android.gms.location.ActivityTransition
 
 @Singleton
 class TrackingManager @Inject constructor(
@@ -50,10 +50,10 @@ class TrackingManager @Inject constructor(
 
     fun startTracking() {
         eventRepository.addMessage("Starting tracking")
-        updateState(TrackingState.MOVING)
+        updateState(TrackingState.STATIONARY)
         activityRecognitionManager.start()
-        startLocationDistanceLogging()
-        startFgTracking()
+        plantStartGeofence()
+        observeLocationUpdates()
         prefs.edit { putBoolean(KEY_IS_TRACKING, true) }
     }
 
@@ -63,8 +63,7 @@ class TrackingManager @Inject constructor(
         activityRecognitionManager.stop()
         stopFgTracking()
         updateState(TrackingState.STATIONARY)
-        geofenceManager.removeGeofence(GeofenceManager.START_GEOFENCE_ID)
-        geofenceManager.removeGeofence(GeofenceManager.LAST_GEOFENCE_ID)
+        geofenceManager.removeAll()
         prefs.edit { putBoolean(KEY_IS_TRACKING, false) }
     }
 
@@ -81,6 +80,24 @@ class TrackingManager @Inject constructor(
         geofenceManager.createLastGeofenceAt(location)
     }
 
+    private fun plantStartGeofence() {
+        coroutineScope.launch {
+            val location = locationManager.getCurrentLocation()
+            if (location == null) {
+                eventRepository.addMessage("Failed to plant start geofence - location not found")
+                return@launch
+            }
+            val distanceMeters = lastLocation?.distanceTo(location)?.toDouble()?.toInt() ?: 0
+
+            eventRepository.addMessage(
+                "Location received - ${location.latitude}:${location.longitude} distance: $distanceMeters m",
+                location.time
+            )
+            lastLocation = location
+            geofenceManager.createStartGeofenceAt(location)
+        }
+    }
+
     fun onGeofenceExit(triggeringIds: List<String>) {
         if (triggeringIds.isNotEmpty()) {
             triggeringIds.forEach { id -> geofenceManager.removeGeofence(id) }
@@ -91,9 +108,7 @@ class TrackingManager @Inject constructor(
         eventRepository.addMessage("GeoFence exit detected - triggeringIds $triggeringIds")
         startFgTracking()
 
-        lastLocation?.let { current ->
-            geofenceManager.createStartGeofenceAt(current)
-        }
+        plantStartGeofence()
     }
 
     // ------------ Activity Recognition Handling ------------
@@ -101,23 +116,27 @@ class TrackingManager @Inject constructor(
         val result = ActivityTransitionResult.extractResult(intent) ?: return
         result.transitionEvents.forEach { event ->
             eventRepository.addMessage("Activity transition: type=${event.activityType} transition=${event.transitionType}")
-            if (_trackingState.value == TrackingState.MOVING) {
-                if (event.activityType == DetectedActivity.STILL) {
-                    stationaryTimerJob = coroutineScope.launch {
-                        delay(3.minutes)
-                        eventRepository.addMessage("ActivityRecognition: STILL detected")
-                        updateState(TrackingState.STATIONARY)
-                        stopFgTracking()
-                    }
-                } else {
-                    cancelStationaryTimer()
+            if (_trackingState.value == TrackingState.MOVING
+                && event.transitionType == ActivityTransition.ACTIVITY_TRANSITION_ENTER
+            ) {
+                stationaryTimerJob = coroutineScope.launch {
+                    delay(3.minutes)
+                    eventRepository.addMessage("ActivityRecognition: STILL detected")
+                    updateState(TrackingState.STATIONARY)
+                    stopFgTracking()
                 }
+            } else if (_trackingState.value == TrackingState.STATIONARY
+                && event.transitionType == ActivityTransition.ACTIVITY_TRANSITION_EXIT
+            ) {
+                eventRepository.addMessage("ActivityRecognition: MOVING detected")
+                startFgTracking()
+            } else {
+                cancelStationaryTimer()
             }
         }
     }
 
     private fun cancelStationaryTimer() {
-        eventRepository.addMessage("Cancelling stationary timer")
         stationaryTimerJob?.cancel()
         stationaryTimerJob = null
     }
@@ -143,9 +162,7 @@ class TrackingManager @Inject constructor(
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
                 e is ForegroundServiceStartNotAllowedException
             ) {
-                lastLocation?.let { current ->
-                    geofenceManager.createStartGeofenceAt(current)
-                }
+                plantStartGeofence()
             }
         }
     }
@@ -154,7 +171,7 @@ class TrackingManager @Inject constructor(
         context.stopService(Intent(context, TrackingService::class.java))
     }
 
-    private fun startLocationDistanceLogging() {
+    private fun observeLocationUpdates() {
         if (locationLoggingJob != null) return
         locationLoggingJob = coroutineScope.launch {
             locationManager.locationFlow.collectLatest { location ->

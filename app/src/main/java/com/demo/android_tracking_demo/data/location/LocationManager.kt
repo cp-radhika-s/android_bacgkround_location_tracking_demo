@@ -16,13 +16,17 @@ import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.suspendCancellableCoroutine
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 import kotlin.time.Duration.Companion.seconds
 
 @Singleton
@@ -72,12 +76,12 @@ class LocationManager @Inject constructor(
         fusedLocationClient.removeLocationUpdates(locationCallback)
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     @SuppressLint("MissingPermission")
-    fun getCurrentLocation(): Flow<Location?> = callbackFlow {
+    suspend fun getCurrentLocation(): Location? = suspendCancellableCoroutine { cont ->
         if (!appContext.hasFineLocationPermission()) {
-            trySend(null)
-            close()
-            return@callbackFlow
+            cont.cancel()
+            return@suspendCancellableCoroutine
         }
 
         val tokenSource = CancellationTokenSource()
@@ -85,19 +89,13 @@ class LocationManager @Inject constructor(
         fusedLocationClient.getCurrentLocation(
             Priority.PRIORITY_HIGH_ACCURACY,
             tokenSource.token
-        ).addOnSuccessListener { location: Location? ->
-            if (location == null) {
-                eventRepository.addMessage("Last known location: null")
-            }
-            trySend(location).isSuccess
-            close()
+        ).addOnSuccessListener { location ->
+            cont.resume(location)
         }.addOnFailureListener { error ->
-            eventRepository.addMessage("Failed to get last known location: ${error.message}")
-            trySend(null).isSuccess
-            close(error)
+            cont.resumeWithException(error)
         }
 
-        awaitClose {
+        cont.invokeOnCancellation {
             tokenSource.cancel()
         }
     }

@@ -34,6 +34,7 @@ class TrackingService : Service() {
 
         if (startForeground) startAsForegroundService()
         locationManager.startLocationUpdates()
+        eventRepository.addMessage("TrackingService onStartCommand [startForeground: $startForeground]")
         return START_STICKY
     }
 
