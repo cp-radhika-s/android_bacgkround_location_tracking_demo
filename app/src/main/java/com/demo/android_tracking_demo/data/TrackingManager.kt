@@ -36,7 +36,7 @@ class TrackingManager @Inject constructor(
     private val geofenceManager: GeofenceManager
 ) {
     private val coroutineScope: CoroutineScope =
-        CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var stationaryTimerJob: Job? = null
     private var locationLoggingJob: Job? = null
 
@@ -87,13 +87,7 @@ class TrackingManager @Inject constructor(
                 eventRepository.addMessage("Failed to plant start geofence - location not found")
                 return@launch
             }
-            val distanceMeters = lastLocation?.distanceTo(location)?.toDouble()?.toInt() ?: 0
-
-            eventRepository.addMessage(
-                "Location received - ${location.latitude}:${location.longitude} distance: $distanceMeters m",
-                location.time
-            )
-            lastLocation = location
+            onLocationUpdate(location)
             geofenceManager.createStartGeofenceAt(location)
         }
     }
@@ -119,7 +113,7 @@ class TrackingManager @Inject constructor(
             if (_trackingState.value == TrackingState.MOVING
                 && event.transitionType == ActivityTransition.ACTIVITY_TRANSITION_ENTER
             ) {
-                if (stationaryTimerJob?.isActive == true) return
+                stationaryTimerJob?.cancel()
                 stationaryTimerJob = coroutineScope.launch {
                     delay(3.minutes)
                     eventRepository.addMessage("ActivityRecognition: STILL detected")
@@ -177,17 +171,20 @@ class TrackingManager @Inject constructor(
         locationLoggingJob = coroutineScope.launch {
             locationManager.locationFlow.collectLatest { location ->
                 if (location == null) return@collectLatest
-                val distanceMeters = lastLocation?.distanceTo(location)?.toDouble()?.toInt() ?: 0
-                eventRepository.addMessage(
-                    "Location received - ${location.latitude}:${location.longitude} distance: $distanceMeters m",
-                    location.time
-                )
-                lastLocation = location
+                onLocationUpdate(location)
                 plantLastGeofence(location)
             }
         }
     }
 
+    private fun onLocationUpdate(location: Location) {
+        val distanceMeters = lastLocation?.distanceTo(location)?.toDouble()?.toInt() ?: 0
+        eventRepository.addMessage(
+            "Location received - ${location.latitude}:${location.longitude} distance: $distanceMeters m",
+            location.time
+        )
+        lastLocation = location
+    }
 
     private fun updateState(newState: TrackingState) {
         if (_trackingState.value == newState) return
