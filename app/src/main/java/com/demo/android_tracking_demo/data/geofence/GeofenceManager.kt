@@ -45,11 +45,11 @@ class GeofenceManager @Inject constructor(
             .setCircularRegion(
                 location.latitude,
                 location.longitude,
-                DEFAULT_GEOFENCE_RADIUS_METERS
+                100f
             )
-            .setNotificationResponsiveness(30_000)
+            .setNotificationResponsiveness(0)
             .setExpirationDuration(Geofence.NEVER_EXPIRE)
-            .setTransitionTypes(DEFAULT_TRANSITIONS)
+            .setTransitionTypes(Geofence.GEOFENCE_TRANSITION_EXIT)
             .build()
 
         val request = GeofencingRequest.Builder()
@@ -82,14 +82,11 @@ class GeofenceManager @Inject constructor(
 
     private val geofencePendingIntent: PendingIntent by lazy {
         val intent = Intent(appContext, GeofenceBroadcastReceiver::class.java)
-        val flags = PendingIntent.FLAG_UPDATE_CURRENT or (
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) PendingIntent.FLAG_MUTABLE else 0
-                )
         PendingIntent.getBroadcast(
             appContext,
-            0,
+            103,
             intent,
-            flags
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
         )
     }
 
@@ -97,8 +94,6 @@ class GeofenceManager @Inject constructor(
         const val DEFAULT_REQUEST_ID = "stationary_geofence"
         const val START_GEOFENCE_ID = "start_region"
         const val LAST_GEOFENCE_ID = "last_region"
-        const val DEFAULT_GEOFENCE_RADIUS_METERS = 100f
-        const val DEFAULT_TRANSITIONS = Geofence.GEOFENCE_TRANSITION_EXIT
     }
 }
 

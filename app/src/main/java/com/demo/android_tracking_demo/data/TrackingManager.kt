@@ -107,7 +107,11 @@ class TrackingManager @Inject constructor(
 
     // ------------ Activity Recognition Handling ------------
     fun handleActivityTransition(intent: Intent) {
-        val result = ActivityTransitionResult.extractResult(intent) ?: return
+        val result = ActivityTransitionResult.extractResult(intent)
+        if (result == null) {
+            eventRepository.addMessage("No ActivityTransitionResult in intent")
+            return
+        }
         result.transitionEvents.forEach { event ->
             eventRepository.addMessage("Activity transition: type=${event.activityType} transition=${event.transitionType}")
             if (_trackingState.value == TrackingState.MOVING
@@ -146,18 +150,26 @@ class TrackingManager @Inject constructor(
         }
 
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && shouldStartForeground) {
-                context.startForegroundService(serviceIntent)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                if (context.isAppInForeground()) {
+                    eventRepository.addMessage("isAppInForeground -> Starting background tracking service ")
+                    context.startService(serviceIntent)
+                } else {
+                    eventRepository.addMessage("Starting foreground tracking service")
+                    context.startForegroundService(serviceIntent)
+                }
             } else {
+                eventRepository.addMessage("Starting background tracking service")
                 context.startService(serviceIntent)
             }
         } catch (e: Exception) {
-            eventRepository.addMessage("Failed to start tracking service: ${e.message}")
-
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
                 e is ForegroundServiceStartNotAllowedException
             ) {
+                eventRepository.addMessage("Foreground service not allowed: ${e.message}")
                 plantStartGeofence()
+            } else {
+                eventRepository.addMessage("Failed to start tracking service: ${e.message}")
             }
         }
     }

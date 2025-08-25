@@ -25,16 +25,11 @@ class TrackingService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val action = intent?.action
-        val startForeground = when (action) {
-            ACTION_START_FG_TRACKING -> true
-            ACTION_START_TRACKING -> false
-            else -> true
+        if (intent?.action == ACTION_START_FG_TRACKING) {
+            startAsForegroundService()
         }
-
-        if (startForeground) startAsForegroundService()
         locationManager.startLocationUpdates()
-        eventRepository.addMessage("TrackingService onStartCommand [startForeground: $startForeground]")
+        eventRepository.addMessage("TrackingService onStartCommand [${intent?.action}]")
         return START_STICKY
     }
 
@@ -66,8 +61,8 @@ class TrackingService : Service() {
 
     companion object {
         const val ACTION_START_FG_TRACKING =
-            "com.demo.android_tracking_demo.action.START_FG_TRACKING"
+            "action.START_FG_TRACKING"
         const val ACTION_START_TRACKING =
-            "com.demo.android_tracking_demo.action.START_TRACKING"
+            "action.START_TRACKING"
     }
 }

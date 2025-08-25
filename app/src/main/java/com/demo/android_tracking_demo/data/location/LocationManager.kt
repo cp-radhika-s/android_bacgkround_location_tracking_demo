@@ -10,6 +10,7 @@ import androidx.core.app.ActivityCompat
 import com.demo.android_tracking_demo.data.domain.EventRepository
 import com.demo.android_tracking_demo.data.domain.hasFineLocationPermission
 import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationAvailability
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
@@ -41,8 +42,14 @@ class LocationManager @Inject constructor(
     private val locationCallback: LocationCallback = object : LocationCallback() {
         override fun onLocationResult(locationResult: LocationResult) {
             for (location in locationResult.locations) {
+                eventRepository.addMessage("LocationManager - Location update: $location")
                 _locationFlow.value = location
             }
+        }
+
+        override fun onLocationAvailability(p0: LocationAvailability) {
+            super.onLocationAvailability(p0)
+            eventRepository.addMessage("Location availability: ${p0.isLocationAvailable}")
         }
     }
 
@@ -59,17 +66,23 @@ class LocationManager @Inject constructor(
             return
         }
 
+        eventRepository.addMessage("Requesting location updates")
+
         val request =
             LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, LOCATION_UPDATES_INTERVAL_MS)
                 .setMinUpdateIntervalMillis(LOCATION_UPDATES_INTERVAL_MS)
                 .setMinUpdateDistanceMeters(DISTANCE_THRESHOLD)
-                .setWaitForAccurateLocation(true)
                 .build()
+
         fusedLocationClient.requestLocationUpdates(
             request,
             locationCallback,
             Looper.getMainLooper()
-        )
+        ).addOnSuccessListener { location ->
+            eventRepository.addMessage("Location updates started")
+        }.addOnFailureListener { error ->
+            eventRepository.addMessage("Failed to start location updates: ${error.message}")
+        }
     }
 
     fun stopLocationUpdates() {

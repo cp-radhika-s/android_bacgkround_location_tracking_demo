@@ -8,6 +8,7 @@ import com.demo.android_tracking_demo.data.TrackingManager
 import com.google.android.gms.location.Geofence
 import com.google.android.gms.location.GeofencingEvent
 import dagger.hilt.android.AndroidEntryPoint
+import timber.log.Timber
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -18,8 +19,8 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         val parsedEvent = GeofencingEvent.fromIntent(intent)
-
         val event = parsedEvent ?: run {
+            eventRepository.addMessage("Geofence event is null")
             return
         }
 
